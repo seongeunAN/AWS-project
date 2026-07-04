@@ -10,5 +10,5 @@ qrcode>=7.4                 # OTP 등록용 QR 코드 생성
 # 배포(production) DB 드라이버 — production.py가 PostgreSQL을 사용
 psycopg[binary]>=3.1
 
-# 6단계(배포)에서 추가 예정:
-# gunicorn>=21.2            # WSGI 앱 서버
+# 배포 앱 서버 (WSGI)
+gunicorn>=21.2

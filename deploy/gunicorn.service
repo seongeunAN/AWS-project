@@ -1,0 +1,40 @@
+# systemd 서비스 유닛 — Gunicorn (WSGI 앱 서버)
+# 배치: /etc/systemd/system/gunicorn.service
+# 적용:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now gunicorn
+#   sudo systemctl status gunicorn
+#
+# 전제: 프로젝트가 /home/ubuntu/AWS-project 에 있고, 가상환경은 .venv,
+#       환경변수는 .env 파일로 관리 (경로는 실제 환경에 맞게 수정).
+
+[Unit]
+Description=Gunicorn for report board
+After=network.target
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/AWS-project
+
+# .env 의 환경변수(SECRET_KEY, DB_* 등)를 읽어 온다.
+EnvironmentFile=/home/ubuntu/AWS-project/.env
+# 배포 설정 사용을 강제
+Environment=DJANGO_SETTINGS_MODULE=config.settings.production
+
+# unix 소켓 디렉터리 준비
+RuntimeDirectory=gunicorn
+RuntimeDirectoryMode=0755
+
+ExecStart=/home/ubuntu/AWS-project/.venv/bin/gunicorn \
+    --workers 3 \
+    --bind unix:/run/gunicorn/report.sock \
+    config.wsgi:application
+
+# gunicorn 자체 접근 로그는 남기지 않는다 (IP 미기록). 오류만 표준오류로.
+# (기본적으로 --access-logfile 을 지정하지 않으면 접근 로그를 남기지 않음)
+
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

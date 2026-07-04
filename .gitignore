@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+
+# 환경변수/비밀 (5단계에서 도입) — 절대 커밋 금지
+.env
+.env.*
+!.env.example
+
+# 정적 파일 수집물 (배포)
+/staticfiles/
+
+# 에디터
+.vscode/
+.idea/
+.DS_Store

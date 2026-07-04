@@ -242,3 +242,28 @@ class AdminIdentityPermissionTests(TestCase):
         self.assertNotContains(resp, "secret@example.com")
         # 열람하지 못했으므로 감사 로그도 남지 않는다.
         self.assertEqual(AccessAuditLog.objects.count(), 0)
+
+
+class NoIpCollectionTests(TestCase):
+    """신고자 IP를 수집/기록하지 않는지 방어적으로 검증."""
+
+    def test_source_does_not_read_client_ip(self):
+        """앱 코드가 요청에서 IP를 읽는 흔적(REMOTE_ADDR 등)이 없어야 한다."""
+        import pathlib
+        app_dir = pathlib.Path(__file__).resolve().parent
+        forbidden = ("REMOTE_ADDR", "HTTP_X_FORWARDED_FOR", "X-Forwarded-For", "get_host_ip")
+        for py in app_dir.glob("*.py"):
+            if py.name == "tests.py":
+                continue
+            text = py.read_text(encoding="utf-8")
+            for token in forbidden:
+                self.assertNotIn(token, text, f"{py.name} 에 '{token}' 가 있으면 안 됩니다")
+
+    def test_logging_has_no_ip_leaking_handler(self):
+        """로깅 설정에 요청 META(IP 포함)를 외부로 보내는 mail_admins 핸들러가 없어야 한다."""
+        from django.conf import settings
+        handlers = settings.LOGGING.get("handlers", {})
+        self.assertNotIn("mail_admins", handlers)
+        # django.request 로거도 mail_admins를 쓰지 않아야 한다.
+        req_logger = settings.LOGGING.get("loggers", {}).get("django.request", {})
+        self.assertNotIn("mail_admins", req_logger.get("handlers", []))

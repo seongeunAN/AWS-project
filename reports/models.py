@@ -47,6 +47,11 @@ class Report(models.Model):
         verbose_name = "신고"
         verbose_name_plural = "신고 목록"
         ordering = ["-created_at"]
+        permissions = [
+            # 이 권한을 가진 관리자만 신원(이름·연락처)을 열람할 수 있다.
+            # (Django admin 접근 권한과 별개로, 신원 열람을 한 번 더 통제)
+            ("view_identity", "신원 정보(이름·연락처) 열람 가능"),
+        ]
 
     def __str__(self):
         return f"[{self.get_status_display()}] {self.title}"

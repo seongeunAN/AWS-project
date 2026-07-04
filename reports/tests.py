@@ -4,11 +4,12 @@
 1) 익명 신고 시 신원 필드가 '서버에서 강제로' 비워지는가 (폼 + 모델 양쪽)
 2) 실명 신고 시 이름/연락처가 필수로 검증되는가
 """
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
 from .forms import ReportForm
-from .models import Report
+from .models import AccessAuditLog, Report
 
 
 class AnonymousEnforcementFormTests(TestCase):
@@ -149,3 +150,95 @@ class PublicScreenIdentityHidingTests(TestCase):
         report = Report.objects.get(title="익명 신고 POST")
         self.assertEqual(report.reporter_name, "")
         self.assertEqual(report.reporter_contact, "")
+
+
+class AdminIdentityAuditTests(TestCase):
+    """관리자 신원 열람 통제 + 감사 로그 자동 기록 검증."""
+
+    def setUp(self):
+        User = get_user_model()
+        # 슈퍼유저는 모든 권한을 가지므로 view_identity 권한도 갖는다.
+        self.admin = User.objects.create_superuser(
+            username="admin", email="a@example.com", password="pw-strong-12345"
+        )
+        self.client.force_login(self.admin)
+
+        self.named = Report.objects.create(
+            title="실명 신고", content="내용", is_anonymous=False,
+            reporter_name="김실명", reporter_contact="hong@example.com",
+        )
+        self.anon = Report.objects.create(
+            title="익명 신고", content="내용", is_anonymous=True,
+        )
+
+    def test_view_named_report_creates_audit_log(self):
+        """신원 있는 신고 상세를 열면 감사 로그가 생성된다."""
+        url = reverse("admin:reports_report_change", args=[self.named.pk])
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        # 상세 화면에는 관리자에게 신원이 보인다.
+        self.assertContains(resp, "김실명")
+        log = AccessAuditLog.objects.filter(report=self.named)
+        self.assertEqual(log.count(), 1)
+        self.assertEqual(log.first().admin_user, self.admin)
+        self.assertEqual(log.first().action, AccessAuditLog.Action.VIEW_IDENTITY)
+
+    def test_view_anonymous_report_creates_no_log(self):
+        """신원이 없는(익명) 신고를 열면 감사 로그가 생기지 않는다."""
+        url = reverse("admin:reports_report_change", args=[self.anon.pk])
+        self.client.get(url)
+        self.assertEqual(AccessAuditLog.objects.count(), 0)
+
+    def test_status_can_be_changed(self):
+        """관리자가 상태를 변경할 수 있다."""
+        url = reverse("admin:reports_report_change", args=[self.anon.pk])
+        self.client.post(url, data={
+            "title": self.anon.title,
+            "content": self.anon.content,
+            "status": Report.Status.DONE,
+            "_save": "저장",
+        })
+        self.anon.refresh_from_db()
+        self.assertEqual(self.anon.status, Report.Status.DONE)
+
+    def test_audit_log_is_read_only(self):
+        """감사 로그는 추가/수정/삭제가 불가능해야 한다."""
+        from .admin import AccessAuditLogAdmin
+        from django.contrib.admin.sites import site
+        ma = AccessAuditLogAdmin(AccessAuditLog, site)
+
+        class _Req:
+            user = self.admin
+        req = _Req()
+        self.assertFalse(ma.has_add_permission(req))
+        self.assertFalse(ma.has_change_permission(req))
+        self.assertFalse(ma.has_delete_permission(req))
+
+
+class AdminIdentityPermissionTests(TestCase):
+    """view_identity 권한이 없는 staff는 신원을 열람할 수 없다."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.staff = User.objects.create_user(
+            username="staff", password="pw-strong-12345", is_staff=True,
+        )
+        # Report 열람/변경 권한은 주되, view_identity 권한은 주지 않는다.
+        from django.contrib.auth.models import Permission
+        for codename in ("view_report", "change_report"):
+            self.staff.user_permissions.add(Permission.objects.get(codename=codename))
+        self.client.force_login(self.staff)
+
+        self.named = Report.objects.create(
+            title="실명 신고", content="내용", is_anonymous=False,
+            reporter_name="비밀이름", reporter_contact="secret@example.com",
+        )
+
+    def test_staff_without_permission_cannot_see_identity(self):
+        url = reverse("admin:reports_report_change", args=[self.named.pk])
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, "비밀이름")
+        self.assertNotContains(resp, "secret@example.com")
+        # 열람하지 못했으므로 감사 로그도 남지 않는다.
+        self.assertEqual(AccessAuditLog.objects.count(), 0)

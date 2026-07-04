@@ -1,0 +1,85 @@
+{% extends "reports/base.html" %}
+{% comment %}
+신고 작성 폼.
+- 상단에 개인정보 고지문을 명확히 표시한다. (실명 선택 시 관리자 열람 가능함을 사전 고지)
+- 익명/실명은 라디오로 선택하며 기본값은 '익명'.
+- 신원 입력란은 실명을 선택했을 때만 보이도록 JS로 토글한다.
+  단, 이는 편의를 위한 것이고 '강제로 비우기'는 서버(폼/모델)에서 처리한다.
+{% endcomment %}
+{% block title %}신고 작성 · 현장실습 부당대우 신고 게시판{% endblock %}
+
+{% block content %}
+  <h1 style="font-size:22px; margin:0 0 16px;">부당대우 신고 작성</h1>
+
+  {# --- 개인정보 고지 (필수) --- #}
+  <div class="notice">
+    <strong>안내</strong>
+    <ul style="margin:8px 0 0; padding-left:20px;">
+      <li>이 게시판은 <strong>로그인 없이</strong> 신고할 수 있습니다.</li>
+      <li>신고자의 <strong>IP 주소는 저장하지 않습니다.</strong></li>
+      <li>기본은 <strong>익명</strong>이며, 익명으로 신고하면 이름·연락처는 저장되지 않습니다.</li>
+      <li><strong>신원을 밝히시면 학교 담당 관리자가 이름·연락처를 열람할 수 있습니다.</strong>
+          (후속 연락을 위해서만 사용)</li>
+    </ul>
+  </div>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <ul class="errorlist">{{ form.non_field_errors }}</ul>
+    {% endif %}
+
+    <div class="field">
+      <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+      {{ form.title }}
+      {{ form.title.errors }}
+    </div>
+
+    <div class="field">
+      <label for="{{ form.content.id_for_label }}">{{ form.content.label }}</label>
+      {{ form.content }}
+      {{ form.content.errors }}
+    </div>
+
+    <div class="field">
+      <label>{{ form.is_anonymous.label }}</label>
+      <div class="radio-group" id="anon-choice">
+        {{ form.is_anonymous }}
+      </div>
+      {{ form.is_anonymous.errors }}
+    </div>
+
+    {# 신원 입력란: 실명 선택 시에만 노출 (JS 토글). 서버가 최종 검증/비우기 처리. #}
+    <div id="identity-fields" hidden>
+      <div class="field">
+        <label for="{{ form.reporter_name.id_for_label }}">{{ form.reporter_name.label }}</label>
+        {{ form.reporter_name }}
+        {{ form.reporter_name.errors }}
+      </div>
+      <div class="field">
+        <label for="{{ form.reporter_contact.id_for_label }}">{{ form.reporter_contact.label }}</label>
+        {{ form.reporter_contact }}
+        {{ form.reporter_contact.errors }}
+      </div>
+    </div>
+
+    <button type="submit" class="btn">신고 접수</button>
+    <a href="{% url 'reports:list' %}" class="btn secondary">취소</a>
+  </form>
+
+  <script>
+    // 실명(값 "False")을 선택하면 신원 입력란을 보여준다.
+    (function () {
+      var box = document.getElementById('identity-fields');
+      var radios = document.querySelectorAll('#anon-choice input[type=radio]');
+      function sync() {
+        var selected = document.querySelector('#anon-choice input[type=radio]:checked');
+        // value가 "False"(= 신원을 밝힘)일 때만 노출
+        box.hidden = !(selected && selected.value === 'False');
+      }
+      radios.forEach(function (r) { r.addEventListener('change', sync); });
+      sync(); // 초기 상태 반영 (기본은 익명이므로 숨김)
+    })();
+  </script>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "reports/base.html" %}
+{% comment %}
+상세 화면. 신원 정보(reporter_name/reporter_contact)는 절대 렌더링하지 않는다.
+익명/실명 여부조차 일반 화면에서는 굳이 드러내지 않는다(신원 관련 정보 최소화).
+관리자만 admin에서 신원을 열람한다.
+{% endcomment %}
+{% block title %}{{ report.title }} · 신고 상세{% endblock %}
+
+{% block content %}
+  <p><a href="{% url 'reports:list' %}">← 목록으로</a></p>
+
+  <div class="card">
+    <div class="meta" style="margin-bottom:8px;">
+      <span class="status">{{ report.get_status_display }}</span>
+      · 접수 {{ report.created_at|date:"Y-m-d H:i" }}
+    </div>
+    <h1 style="font-size:22px; margin:0 0 12px;">{{ report.title }}</h1>
+    <div style="white-space:pre-wrap;">{{ report.content }}</div>
+  </div>
+{% endblock %}

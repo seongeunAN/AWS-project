@@ -1,0 +1,63 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {# 검색엔진에 신고 내용이 노출되지 않도록 색인 방지 #}
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}현장실습 부당대우 신고 게시판{% endblock %}</title>
+  <style>
+    :root { --line:#e2e2e2; --muted:#666; --accent:#1a5fb4; --bg:#fafafa; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
+           margin: 0; background: var(--bg); color: #222; line-height: 1.6; }
+    header { background: #fff; border-bottom: 1px solid var(--line); }
+    .wrap { max-width: 800px; margin: 0 auto; padding: 16px 20px; }
+    header .wrap { display: flex; justify-content: space-between; align-items: center; }
+    header a.brand { font-weight: 700; color: #222; text-decoration: none; font-size: 18px; }
+    main.wrap { padding-top: 24px; padding-bottom: 48px; }
+    a { color: var(--accent); }
+    .btn { display: inline-block; background: var(--accent); color: #fff;
+           padding: 8px 16px; border-radius: 6px; text-decoration: none; border: 0;
+           font-size: 15px; cursor: pointer; }
+    .btn.secondary { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
+    .notice { background: #fff8e1; border: 1px solid #f2d98c; border-radius: 8px;
+              padding: 14px 16px; margin-bottom: 20px; font-size: 14px; }
+    .messages { list-style: none; padding: 0; margin: 0 0 20px; }
+    .messages li { background: #e7f5e7; border: 1px solid #a5d6a5; border-radius: 6px;
+                   padding: 10px 14px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 8px;
+            padding: 16px 18px; margin-bottom: 12px; }
+    .card h3 { margin: 0 0 6px; font-size: 17px; }
+    .meta { color: var(--muted); font-size: 13px; }
+    .status { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 10px;
+              background: #eef2f7; color: #33507a; }
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-weight: 600; margin-bottom: 6px; }
+    .field input[type=text], .field textarea {
+      width: 100%; padding: 9px 10px; border: 1px solid #ccc; border-radius: 6px;
+      font-size: 15px; font-family: inherit; }
+    .radio-group label { font-weight: 400; display: block; margin-bottom: 4px; }
+    .errorlist { color: #c0392b; list-style: none; padding: 0; margin: 4px 0 0; font-size: 14px; }
+    .empty { color: var(--muted); text-align: center; padding: 40px 0; }
+    .pagination { margin-top: 20px; text-align: center; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <a class="brand" href="{% url 'reports:list' %}">현장실습 부당대우 신고 게시판</a>
+      <a class="btn" href="{% url 'reports:create' %}">신고하기</a>
+    </div>
+  </header>
+  <main class="wrap">
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}<li>{{ message }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

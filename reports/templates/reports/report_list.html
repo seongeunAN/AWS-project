@@ -1,0 +1,36 @@
+{% extends "reports/base.html" %}
+{% comment %}
+목록 화면. 신원 정보(reporter_name/reporter_contact)는 절대 렌더링하지 않는다.
+여기서 다루는 값은 제목/상태/접수시각뿐이다.
+{% endcomment %}
+{% block title %}신고 목록 · 현장실습 부당대우 신고 게시판{% endblock %}
+
+{% block content %}
+  <h1 style="font-size:22px; margin:0 0 16px;">신고 목록</h1>
+
+  {% for report in reports %}
+    <div class="card">
+      <h3><a href="{% url 'reports:detail' report.pk %}">{{ report.title }}</a></h3>
+      <div class="meta">
+        <span class="status">{{ report.get_status_display }}</span>
+        · 접수 {{ report.created_at|date:"Y-m-d H:i" }}
+      </div>
+    </div>
+  {% empty %}
+    <div class="empty">아직 등록된 신고가 없습니다.<br>
+      <a class="btn" style="margin-top:12px;" href="{% url 'reports:create' %}">첫 신고 작성하기</a>
+    </div>
+  {% endfor %}
+
+  {% if is_paginated %}
+    <div class="pagination">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}">← 이전</a>
+      {% endif %}
+      <span>{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}">다음 →</a>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endblock %}

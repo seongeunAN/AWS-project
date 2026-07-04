@@ -5,6 +5,7 @@
 2) 실명 신고 시 이름/연락처가 필수로 검증되는가
 """
 from django.test import TestCase
+from django.urls import reverse
 
 from .forms import ReportForm
 from .models import Report
@@ -84,3 +85,67 @@ class AnonymousEnforcementModelTests(TestCase):
         field_names = {f.name for f in Report._meta.get_fields()}
         for forbidden in ("ip_address", "ip", "user_agent", "remote_addr"):
             self.assertNotIn(forbidden, field_names)
+
+
+class PublicScreenIdentityHidingTests(TestCase):
+    """일반 화면(목록/상세)에 신원 정보가 절대 노출되지 않는지 검증."""
+
+    def setUp(self):
+        # 실명 신고를 하나 만들어 둔다 (신원 값이 DB에 실제로 존재하는 상황).
+        self.named = Report.objects.create(
+            title="실명 신고 제목",
+            content="실명 신고 내용",
+            is_anonymous=False,
+            reporter_name="김실명",
+            reporter_contact="secret-contact@example.com",
+        )
+
+    def test_list_does_not_leak_identity(self):
+        resp = self.client.get(reverse("reports:list"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "실명 신고 제목")
+        self.assertNotContains(resp, "김실명")
+        self.assertNotContains(resp, "secret-contact@example.com")
+
+    def test_detail_does_not_leak_identity(self):
+        resp = self.client.get(reverse("reports:detail", args=[self.named.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "실명 신고 내용")
+        self.assertNotContains(resp, "김실명")
+        self.assertNotContains(resp, "secret-contact@example.com")
+
+    def test_create_via_post_named(self):
+        """POST로 실명 신고 작성 → 상세로 리다이렉트, 화면엔 신원 비노출."""
+        resp = self.client.post(
+            reverse("reports:create"),
+            data={
+                "title": "새 실명 신고",
+                "content": "내용",
+                "is_anonymous": "False",
+                "reporter_name": "박실명",
+                "reporter_contact": "010-1111-2222",
+            },
+        )
+        self.assertEqual(resp.status_code, 302)
+        report = Report.objects.get(title="새 실명 신고")
+        self.assertEqual(report.reporter_name, "박실명")
+        # 리다이렉트된 상세 페이지에서도 신원은 안 보여야 한다.
+        detail = self.client.get(resp.url)
+        self.assertNotContains(detail, "박실명")
+        self.assertNotContains(detail, "010-1111-2222")
+
+    def test_create_via_post_anonymous_clears_identity(self):
+        """POST로 익명 신고 시 신원이 함께 와도 저장되지 않아야 한다."""
+        self.client.post(
+            reverse("reports:create"),
+            data={
+                "title": "익명 신고 POST",
+                "content": "내용",
+                "is_anonymous": "True",
+                "reporter_name": "무시될이름",
+                "reporter_contact": "무시될연락처",
+            },
+        )
+        report = Report.objects.get(title="익명 신고 POST")
+        self.assertEqual(report.reporter_name, "")
+        self.assertEqual(report.reporter_contact, "")
